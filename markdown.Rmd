@@ -1,0 +1,166 @@
+---
+title: "Wieloryby"
+author: "Maria Pyznar"
+date: "2024-03-02"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+## Wprowadzenie
+Celem projektu jest zrozumienie rozkładu geograficznego, sezonowości oraz różnorodności gatunków wielorybów obserwowanych na różnych platformach.
+
+```{r}
+dane <- read.csv("C:/Users/Mary/Downloads/All species data.csv", header = TRUE, stringsAsFactors = FALSE) 
+
+
+
+head(dane)
+summary(dane)
+str(dane)
+lapply(dane, unique)
+
+library(ggplot2)
+library(dplyr)
+```
+## Opis
+Zestaw danych dostępny na figshare zawiera informacje o obserwacjach czterech gatunków wielorybów: Bryde's whale (wieloryb Bryde'a), Humpback whale (wieloryb garbaty), Sperm whale (kaszalot) oraz Southern right whale (wieloryb południowy) w regionie Afryki Południowej. Dane obejmują koordynaty geograficzne, daty obserwacji oraz platformę, z której pochodzą dane, dla sezonów letnich i zimowych.
+
+## Struktura Danych
+Dane zawierają informacje takie jak:
+- `Species`: Gatunek wieloryba.
+- `Platform`: Platforma obserwacyjna.
+- `Year`: Rok obserwacji.
+- `Month`: Miesiąc obserwacji.
+- `Latitude` i `Longitude`: Współrzędne geograficzne obserwacji.
+- `Season`: Sezon, w którym dokonano obserwacji.
+
+
+#Czyszczenie
+```{r}
+dane <- na.omit(dane)
+for(i in 1:ncol(dane)){
+  if(is.numeric(dane[,i])){
+    dane[is.na(dane[,i]), i] <- median(dane[,i], na.rm = TRUE)
+  }
+}
+dane <- unique(dane)
+```
+#Eksploracja
+```{r}
+ggplot(dane, aes(x=Latitude)) + geom_histogram(bins=30, fill="blue", color="black") + ggtitle("Rozkład Szerokości Geograficznej")
+ggplot(dane, aes(x=Longitude)) + geom_histogram(bins=30, fill="green", color="black") + ggtitle("Rozkład Długości Geograficznej")
+ggplot(dane, aes(x=Species)) + geom_bar(fill="coral") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ggtitle("Rozkład Gatunków")
+ggplot(dane, aes(x=Platform)) + geom_bar(fill="lightblue") + theme(axis.text.x = element_text(angle = 45, hjust = 1)) + ggtitle("Rozkład Platform")
+```
+-  Istnieje wyraźne skupienie obserwacji wielorybów w określonych szerokościach geograficznych. Największa liczba obserwacji została zanotowana w zakresie szerokości geograficznej około -34 stopni, co sugeruje, że ta lokalizacja może być popularnym obszarem dla wielorybów lub obszarem intensywnych badań.  Dane obejmują szeroki zakres szerokości geograficznych, od około -38 do -20 stopni.
+- Obserwacje wielorybów występują na różnych długościach geograficznych, co wskazuje na szeroki zakres ich występowania lub aktywności badawczej. Widać wyraźne koncentracje obserwacji w określonych długościach, szczególnie w okolicach 20 i 40 stopni.
+- Wykres pokazuje, że w zestawie danych są dwa gatunki, które dominują pod względem liczby obserwacji: "Southern right whale" i "Sperm whale".
+- Większość danych pochodzi z dwóch platform: "MRI" i "OBIS". Oznacza to, że te platformy są głównymi źródłami informacji o obserwacjach wielorybów w badanym regionie.
+
+
+#Analiza czasowa
+```{r}
+dane$Year <- as.integer(as.character(dane$Year))
+yearly_counts <- dane %>%
+  filter(!is.na(Year)) %>%
+  group_by(Year, Species) %>%
+  summarise(count = n(), .groups = 'drop') 
+ggplot(yearly_counts, aes(x = Year, y = count, color = Species)) +
+  geom_line() +
+  labs(title = "Liczba obserwacji różnych gatunków wielorybów w ciągu lat",
+       x = "Rok",
+       y = "Liczba obserwacji") +
+  theme_minimal()
+```
+- Obserwacje wieloryba biskajskiego (Bryde's whale) wykazują spadek na początku dostępnych danych, a następnie utrzymują się na relatywnie niskim poziomie.
+-Obserwacje humbaka (Humpback whale) rozpoczynają się później w dostępnej chronologii i wykazują okresowe wzrosty.
+-Obserwacje płetwala karłowatego (Southern right whale) są najwyższe na początku i gwałtownie spadają, co może wskazywać na intensywną obserwację lub wysokie stężenie tych wielorybów w przeszłości. W późniejszym okresie obserwacje są sporadyczne.
+- Obserwacje kaszalota (Sperm whale) pojawiają się regularnie z kilkoma szczytami obserwacji w określonych latach.
+
+#Gegraficzna
+```{r}
+ggplot(dane, aes(x = Longitude, y = Latitude, color = Species)) +
+  geom_point(alpha = 0.6) +
+  labs(title = "Rozkład przestrzenny obserwacji wielorybów",
+       x = "Długość geograficzna",
+       y = "Szerokość geograficzna") +
+  theme_minimal() +
+  theme(legend.position = "bottom") +
+  coord_quickmap()
+```
+- Na podstawie przedstawionych histogramów i wykresów rozkładu możemy zauważyć, że obserwacje wielorybów są najbardziej skoncentrowane w określonych szerokościach geograficznych, co wskazuje na preferowane środowisko lub szlaki migracyjne tych gatunków. Rozkład długości geograficznej pokazuje również specyficzne obszary, gdzie wieloryby są najczęściej spotykane, co może odzwierciedlać kluczowe rejony żerowania lub rozmnażania.
+
+#Gatunek a platforma obserwacyjna
+```{r}
+tabela_gatunek_platforma <- table(dane$Species, dane$Platform)
+print(tabela_gatunek_platforma)
+df_gatunek_platforma <- as.data.frame(tabela_gatunek_platforma)
+ggplot(df_gatunek_platforma, aes(Var1, Freq, fill = Var2)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Obserwacje gatunków na różnych platformach",
+       x = "Gatunek",
+       y = "Liczba obserwacji",
+       fill = "Platforma") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) 
+```
+ "MMO" jest główną platformą dla obserwacji Humpback whale. Natomiast "OBIS" dominuje w obserwacjach Southern right whale i Sperm whale. 
+
+#Analiza z dplyr w sezonach
+```{r}
+dane %>%
+  group_by(Season) %>%
+  summarise(Liczba_Obserwacji = n()) %>%
+  ggplot(aes(x = Season, y = Liczba_Obserwacji, fill = Season)) +
+  geom_bar(stat = "identity") +
+  theme_minimal() +
+  labs(title = "Liczba obserwacji w różnych sezonach", x = "Sezon", y = "Liczba obserwacji")
+```
+Więcej obserwacji dokonano latem.
+
+# Sezon a gatunek
+```{r}
+dane %>%
+  group_by(Species, Season) %>%
+  summarise(Count = n(), .groups = 'drop') %>%
+  ggplot(aes(x = Season, y = Count, fill = Species)) +
+  geom_bar(stat = "identity", position = position_dodge()) +
+  labs(title = "Sezonowość obserwacji różnych gatunków", x = "Sezon", y = "Liczba obserwacji") +
+  theme_minimal()
+```
+Sezonowo zmienia się liczebnośc obserwacji, zwl=łaszcza dla Southern right whale i Sperm whale.
+
+#Regresja
+```{r}
+dane_regresja <- dane %>%
+  mutate(Year = as.numeric(as.character(Year))) %>% 
+  group_by(Year) %>%
+  summarise(Count = n(), .groups = 'drop')
+regresja <- lm(Count ~ Year, data = dane_regresja)
+summary(regresja)
+ggplot(dane_regresja, aes(x = Year, y = Count)) +
+  geom_point() +
+  geom_smooth(method = "lm", color = "blue") +
+  labs(title = "Trend liczby obserwacji w ciągu lat", x = "Rok", y = "Liczba obserwacji") +
+  theme_minimal()
+```
+Analiza regresji liniowej sugeruje, że istnieje ujemny trend w liczbie obserwacji wielorybów w ciągu lat. Wyniki modelu pokazują, że średnia liczba obserwacji maleje.
+
+#Prawdopodobienstwo zobaczenia na dane platformie
+```{r}
+platform_prob <- dane %>% 
+  group_by(Platform) %>% 
+  summarise(Probability = n() / nrow(dane)) %>%
+  arrange(desc(Probability))
+
+print(platform_prob)
+```
+
+Platforma "OBIS" miała najwyższe prawdopodobieństwo obserwacji wielorybów (49.24%), podczas gdy platforma "MRI" zajęła drugie miejsce z prawdopodobieństwem wynoszącym 41.41%.
+
+# Wnioski
+
+
+W analizie danych dotyczących obserwacji wielorybów stwierdzono istnienie wyraźnych wzorców związanych z ich geograficznym rozmieszczeniem, sezonowością oraz różnorodnością gatunków na różnych platformach obserwacyjnych. Skoncentrowanie się obserwacji w określonych szerokościach geograficznych sugeruje preferowane środowisko lub szlaki migracyjne dla wielorybów, podczas gdy zmienność w czasie może wskazywać na zmiany w migracjach lub zachowaniach tych zwierząt. Dodatkowo, różnice w liczbie obserwacji między platformami sugerują, że niektóre z nich mogą być bardziej efektywne w obserwacji określonych gatunków, co może być istotne dla planowania przyszłych badań i ochrony tych zwierzą
